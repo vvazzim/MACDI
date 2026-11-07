@@ -1,10 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#059669" />
-  <circle cx="50" cy="50" r="44" fill="#ffffff" />
-  <circle cx="50" cy="50" r="38" fill="#059669" />
-  <!-- Crescent -->
-  <path d="M 48 24 A 26 26 0 1 0 68 64 A 20 20 0 1 1 48 24 Z" fill="#dc2626" />
-  <!-- Star -->
-  <polygon points="56,38 58,45 66,45 60,50 62,57 56,53 50,57 52,50 46,45 54,45" fill="#dc2626" />
-  <text x="50" y="85" font-size="12" font-family="Arial, sans-serif" font-weight="bold" fill="#ffffff" text-anchor="middle">DA</text>
+  <defs>
+    <linearGradient id="bagGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="handleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Circle -->
+  <circle cx="50" cy="50" r="48" fill="#ecfdf5" stroke="#10b981" stroke-width="2.5" />
+  
+  <!-- Shopping Bag Handles -->
+  <path d="M 37 36 C 37 20, 63 20, 63 36" fill="none" stroke="url(#handleGrad)" stroke-width="5" stroke-linecap="round" />
+  
+  <!-- Shopping Bag Body -->
+  <path d="M 24 36 L 76 36 L 71 85 C 71 88, 68 90, 65 90 L 35 90 C 32 90, 29 88, 29 85 Z" fill="url(#bagGrad)" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.15))" />
+  
+  <!-- Front fold detail -->
+  <path d="M 32 46 L 50 56 L 68 46" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" />
+
+  <!-- Algerian Red Star and Crescent Stamp on the Bag -->
+  <circle cx="50" cy="67" r="14" fill="#ffffff" opacity="0.95" />
+  <path d="M 52 57 A 9 9 0 1 0 57 73 A 7 7 0 1 1 52 57 Z" fill="#dc2626" />
+  <polygon points="56,64 57,67 60,67 58,69 59,72 56,70 54,72 55,69 53,67 55,67" fill="#dc2626" />
 </svg>

@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>As3ar DZ - Comparateur de Prix Alimentaires en Algérie</title>
+    <title>MACDI - ماكدي | Comparateur de Prix Alimentaires en Algérie</title>
     
     <!-- PWA & Mobile Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#059669" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="As3ar DZ" />
+    <meta name="apple-mobile-web-app-title" content="MACDI" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
     
@@ -20,7 +20,7 @@
     <!-- Fonts: Inter & Tajawal for Algerian Bilingual Arabic/French -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
       body {
@@ -31,15 +31,27 @@
       [dir="rtl"] {
         font-family: 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif;
       }
-      /* Custom map marker styles */
+
+      /* Sleek Modern Map Design */
+      .leaflet-container {
+        font-family: inherit !important;
+        background-color: #f8fafc !important;
+      }
+      
+      /* Subtle modern tile contrast enhancement */
+      .leaflet-tile-pane {
+        filter: contrast(1.04) brightness(1.01) saturate(1.1);
+      }
+
+      /* Custom price marker animations */
       .custom-price-pin {
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
       .custom-price-pin:hover {
-        transform: scale(1.15);
+        transform: scale(1.18);
         z-index: 1000 !important;
       }
     </style>
@@ -53,7 +65,7 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
-            console.log('✅ As3ar-DZ ServiceWorker prêt:', reg.scope);
+            console.log('✅ MACDI ServiceWorker actif:', reg.scope);
           }).catch((err) => {
             console.warn('⚠️ ServiceWorker non enregistré:', err);
           });

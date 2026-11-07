@@ -14,7 +14,7 @@ app.use(express.json());
 
 // API health check for Render
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'as3ar-dz', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'macdi', timestamp: new Date().toISOString() });
 });
 
 // Serve Vite build files from /dist
@@ -27,6 +27,6 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 As3ar-DZ PWA en cours d'exécution sur le port ${PORT}`);
+  console.log(`🚀 MACDI PWA en cours d'exécution sur le port ${PORT}`);
   console.log(`🌍 Accès local : http://localhost:${PORT}`);
 });
