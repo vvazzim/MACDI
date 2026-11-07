@@ -1,17 +1,6 @@
-const CACHE_NAME = 'as3ar-dz-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/favicon.svg'
-];
+const CACHE_NAME = 'macdi-v4-cache';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -27,24 +16,39 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Stale-While-Revalidate strategy for faster response on slow networks
-  if (event.request.method === 'GET') {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-              const responseToCache = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-            }
-            return networkResponse;
-          })
-          .catch(() => cachedResponse);
+  if (event.request.method !== 'GET') return;
 
-        return cachedResponse || fetchPromise;
-      })
+  const url = new URL(event.request.url);
+
+  // Never cache API calls in service worker
+  if (url.pathname.startsWith('/api/')) return;
+
+  // Network-First strategy for HTML navigation (ensures updates appear immediately)
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request) || caches.match('/index.html'))
     );
+    return;
   }
+
+  // Stale-While-Revalidate for static assets
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const networkFetch = fetch(event.request).then((response) => {
+        if (response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => cached);
+
+      return cached || networkFetch;
+    })
+  );
 });
