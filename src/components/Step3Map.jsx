@@ -299,57 +299,58 @@ export function Step3Map({
   return (
     <div className="max-w-md mx-auto flex flex-col h-[calc(100vh-95px)] relative overflow-hidden bg-slate-100">
       
-      {/* Top Floating Control Bar */}
-      <div className="absolute top-3 left-3 right-3 z-[1000] flex items-center justify-between gap-2 pointer-events-none">
-        
-        {/* Product & Best Price Badge */}
-        <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-lg border border-slate-200 pointer-events-auto flex items-center gap-2">
-          <span className="text-2xl">{selectedProduct.image}</span>
-          <div className="text-left">
-            <p className="font-extrabold text-xs text-slate-900 truncate max-w-[130px]">
+      {/* 1. Top Left: Selected Product Badge */}
+      <div className="absolute top-3 left-3 z-[1000] pointer-events-auto">
+        <div className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2 max-w-[190px]">
+          <span className="text-2xl shrink-0">{selectedProduct.image}</span>
+          <div className="text-left overflow-hidden">
+            <p className="font-extrabold text-xs text-slate-900 truncate">
               {isAr ? selectedProduct.name_ar : selectedProduct.name_fr}
             </p>
             <p className="text-[10px] text-dzgreen-700 font-black">
               {priceRecords.length > 0
-                ? `${isAr ? 'ابتداءً من' : 'Dès'} ${priceRecords[0].price_dzd} DA`
+                ? `${isAr ? 'من' : 'Dès'} ${priceRecords[0].price_dzd} DA`
                 : '...'}
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Action Controls: Direct Map Switcher, Refresh, Promo */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
-          
-          {/* Direct Map Toggle (OpenStreetMap <-> Satellite) */}
-          <button
-            onClick={() => setMapStyle(mapStyle === 'osm' ? 'satellite' : 'osm')}
-            className="px-2.5 py-2 bg-white/95 backdrop-blur-md hover:bg-white text-slate-800 rounded-xl shadow-lg border border-slate-200 font-black text-xs flex items-center gap-1 active:scale-95 transition"
-            title="Basculer entre Plan et Satellite"
-          >
-            <Layers className="w-3.5 h-3.5 text-dzgreen-700" />
-            <span>{mapStyle === 'osm' ? (isAr ? 'قمر صناعي 🛰️' : 'Satellite 🛰️') : (isAr ? 'خريطة 🗺️' : 'Plan 🗺️')}</span>
-          </button>
+      {/* 2. Top Right: Promo Button on top, and under it the icon-only controls */}
+      <div className="absolute top-3 right-3 z-[1000] flex flex-col items-end gap-2 pointer-events-auto">
+        {/* + Promo Button */}
+        <button
+          onClick={onOpenPromoModal}
+          className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-2xl shadow-lg font-black text-xs flex items-center gap-1.5 transition border border-amber-300/80"
+        >
+          <Tag className="w-3.5 h-3.5" />
+          <span>{isAr ? 'أضف تخفيض' : '+ Promo'}</span>
+        </button>
 
+        {/* Vertical Icon Toolbar: Refresh & Map Style (Icon Only) */}
+        <div className="flex flex-col items-center gap-1 bg-white/95 backdrop-blur-md p-1 rounded-2xl shadow-lg border border-slate-200/80">
+          {/* Refresh Button */}
           <button
             onClick={loadPrices}
             disabled={loading}
-            className="p-2.5 bg-white/95 backdrop-blur-md hover:bg-white text-slate-700 rounded-xl shadow-lg border border-slate-200 font-bold active:scale-95 transition"
-            title="Rafraîchir les prix"
+            className="w-9 h-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-700 active:scale-95 transition"
+            title={isAr ? 'تحديث الأسعار' : 'Rafraîchir les prix'}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-dzgreen-600' : ''}`} />
           </button>
 
+          {/* Map Style: Satellite 🛰️ or Plan 🗺️ (Icon Only) */}
           <button
-            onClick={onOpenPromoModal}
-            className="px-3 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl shadow-lg font-black text-xs flex items-center gap-1.5 transition border border-amber-300"
+            onClick={() => setMapStyle(mapStyle === 'osm' ? 'satellite' : 'osm')}
+            className="w-9 h-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-800 active:scale-95 transition text-base"
+            title={mapStyle === 'osm' ? (isAr ? 'عرض القمر الصناعي' : 'Vue Satellite') : (isAr ? 'عرض الخريطة' : 'Vue Plan')}
           >
-            <Tag className="w-3.5 h-3.5" />
-            <span>{isAr ? 'أضف تخفيض' : '+ Promo'}</span>
+            {mapStyle === 'osm' ? '🛰️' : '🗺️'}
           </button>
         </div>
       </div>
 
-      {/* 1. Leaflet Map Container */}
+      {/* 3. Leaflet Map Container */}
       <div
         ref={mapContainerRef}
         id="macdi-leaflet-map"
@@ -374,6 +375,12 @@ export function Step3Map({
                 <span className="text-xs font-black text-dzgreen-700 bg-dzgreen-50 px-2 py-0.5 rounded-md border border-dzgreen-200">
                   ~ {selectedRecord.distance_km} km
                 </span>
+                {(selectedRecord.store.source || selectedRecord.source) && (
+                  <span className="text-[10px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 flex items-center gap-1">
+                    <span>🤖</span>
+                    <span>{selectedRecord.store.source || selectedRecord.source}</span>
+                  </span>
+                )}
               </div>
 
               <h3 className="font-black text-lg text-slate-900 mt-1">
