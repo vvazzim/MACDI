@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   Timer,
   Layers,
-  Award
+  Key,
+  X
 } from 'lucide-react';
 import {
   fetchPricesForProduct,
@@ -23,6 +24,14 @@ import {
   getCooldownStatus,
   formatTime
 } from '../services/api';
+
+// Fix default leaflet marker icon asset path if ever used
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+});
 
 export function Step3Map({
   lang,
@@ -34,12 +43,18 @@ export function Step3Map({
   const isAr = lang === 'ar';
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const markersGroupRef = useRef(null);
 
   const [loading, setLoading] = useState(true);
   const [priceRecords, setPriceRecords] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const [mapStyle, setMapStyle] = useState('voyager'); // 'voyager' | 'satellite' | 'streets'
+
+  // Map tile style & API key configuration
+  const [mapStyle, setMapStyle] = useState('voyager'); // 'voyager' | 'osm' | 'satellite' | 'mapbox'
+  const [mapboxApiKey, setMapboxApiKey] = useState(() => localStorage.getItem('macdi_mapbox_key') || '');
+  const [showStyleModal, setShowStyleModal] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState(mapboxApiKey);
   
   // Anti-spam cooldown state
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
@@ -58,7 +73,7 @@ export function Step3Map({
       );
       setPriceRecords(results);
       if (results.length > 0) {
-        setSelectedRecord(results[0]); // Best price selected by default
+        setSelectedRecord(results[0]);
       }
     } catch (err) {
       console.error('Erreur chargement prix:', err);
@@ -90,7 +105,53 @@ export function Step3Map({
     }
   }, [selectedProduct.id, voteSuccess]);
 
-  // 3. Initialize High-End Styled Leaflet Map
+  // Helper to get active tile URL
+  const getTileConfig = (style, apiKey) => {
+    if (style === 'mapbox' && apiKey) {
+      return {
+        url: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${apiKey}`,
+        options: {
+          attribution: '&copy; Mapbox &copy; OpenStreetMap',
+          tileSize: 512,
+          zoomOffset: -1,
+          maxZoom: 19
+        }
+      };
+    }
+
+    if (style === 'satellite') {
+      return {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        options: {
+          attribution: '&copy; Esri World Imagery',
+          maxZoom: 19
+        }
+      };
+    }
+
+    if (style === 'osm') {
+      return {
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        options: {
+          attribution: '&copy; OpenStreetMap contributors',
+          subdomains: ['a', 'b', 'c'],
+          maxZoom: 19
+        }
+      };
+    }
+
+    // Default: Clean CartoDB Voyager (No undefined {r} tokens!)
+    return {
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      options: {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: ['a', 'b', 'c', 'd'],
+        maxZoom: 19
+      }
+    };
+  };
+
+  // 3. Initialize & Mount Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -98,45 +159,38 @@ export function Step3Map({
       const map = L.map(mapContainerRef.current, {
         center: [userLocation.lat, userLocation.lng],
         zoom: radiusKm <= 5 ? 14 : radiusKm <= 15 ? 12 : 11,
-        zoomControl: false
+        zoomControl: false,
+        attributionControl: false
       });
 
-      // Sleek Modern CartoDB Voyager High-Res Tiles
-      const tileUrl =
-        mapStyle === 'satellite'
-          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-          : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}{r}.png';
+      // Add Tile Layer
+      const tileConfig = getTileConfig(mapStyle, mapboxApiKey);
+      tileLayerRef.current = L.tileLayer(tileConfig.url, tileConfig.options).addTo(map);
 
-      L.tileLayer(tileUrl, {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(map);
-
-      // Custom Zoom Control top-right
+      // Add Zoom Control at top right
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // Modern Radius boundary circle
+      // Radius circle
       L.circle([userLocation.lat, userLocation.lng], {
         radius: radiusKm * 1000,
         color: '#059669',
         fillColor: '#10b981',
-        fillOpacity: 0.07,
+        fillOpacity: 0.08,
         weight: 2,
         dashArray: '6, 6'
       }).addTo(map);
 
-      // Sleek User Pulse Marker
+      // User location radar pulse
       const userIcon = L.divIcon({
         className: 'user-pin-pulse',
         html: `
-          <div class="relative flex items-center justify-center">
-            <div class="w-7 h-7 bg-emerald-500/30 rounded-full animate-ping absolute"></div>
-            <div class="w-4 h-4 bg-emerald-600 border-2 border-white rounded-full shadow-md z-10"></div>
+          <div style="position:relative; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">
+            <div style="position:absolute; width:26px; height:26px; background:#10b981; opacity:0.4; border-radius:50%; animation:ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>
+            <div style="width:14px; height:14px; background:#059669; border:2px solid white; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.3); z-index:10;"></div>
           </div>
         `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
       });
 
       L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
@@ -147,15 +201,34 @@ export function Step3Map({
       mapInstanceRef.current = map;
     }
 
-    mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], radiusKm <= 5 ? 14 : 12);
+    // Force Leaflet to recalculate container dimensions (Fixes blank map issues in tabs/flex)
+    const resizeTimer1 = setTimeout(() => {
+      if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+    }, 100);
+    const resizeTimer2 = setTimeout(() => {
+      if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+    }, 400);
 
     return () => {
+      clearTimeout(resizeTimer1);
+      clearTimeout(resizeTimer2);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [userLocation, radiusKm, mapStyle]);
+  }, [userLocation, radiusKm]);
+
+  // Update map style if user changes style or API key
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    if (tileLayerRef.current) {
+      mapInstanceRef.current.removeLayer(tileLayerRef.current);
+    }
+    const tileConfig = getTileConfig(mapStyle, mapboxApiKey);
+    tileLayerRef.current = L.tileLayer(tileConfig.url, tileConfig.options).addTo(mapInstanceRef.current);
+    tileLayerRef.current.bringToBack();
+  }, [mapStyle, mapboxApiKey]);
 
   // 4. Update markers on the map when price records change
   useEffect(() => {
@@ -172,37 +245,41 @@ export function Step3Map({
       const isSelected = selectedRecord && selectedRecord.id === item.id;
       const isPromo = item.is_promo;
 
-      // Color coding & badges
       let badgeHtml = '';
-      let pinColor = 'bg-slate-800 text-white border-slate-900';
+      let pinBg = '#334155';
+      let pinBorder = '#1e293b';
+      let textColor = '#ffffff';
 
       if (isPromo) {
-        badgeHtml = `<span class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full shadow-md animate-bounce tracking-wide border border-amber-300">⚡ ${isAr ? 'تخفيض خاص' : 'PROMO'}</span>`;
-        pinColor = 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 border-amber-400';
+        badgeHtml = `<span style="background:#f59e0b; color:#0f172a; font-weight:900; font-size:9px; padding:2px 6px; border-radius:9999px; box-shadow:0 2px 4px rgba(0,0,0,0.15); margin-bottom:2px; white-space:nowrap;">⚡ ${isAr ? 'تخفيض خاص' : 'PROMO'}</span>`;
+        pinBg = '#f59e0b';
+        pinBorder = '#d97706';
+        textColor = '#0f172a';
       } else if (isCheapest) {
-        badgeHtml = `<span class="bg-dzgreen-600 text-white font-black text-[10px] px-2 py-0.5 rounded-full shadow-md tracking-wide border border-dzgreen-400 flex items-center gap-1">🏆 ${isAr ? 'الأرخص' : 'Le moins cher'}</span>`;
-        pinColor = 'bg-dzgreen-700 text-white border-dzgreen-500';
+        badgeHtml = `<span style="background:#059669; color:#ffffff; font-weight:900; font-size:10px; padding:2px 8px; border-radius:9999px; box-shadow:0 2px 4px rgba(0,0,0,0.15); margin-bottom:2px; white-space:nowrap; border:1px solid #34d399;">🏆 ${isAr ? 'الأرخص' : 'Le moins cher'}</span>`;
+        pinBg = '#047857';
+        pinBorder = '#10b981';
       } else if (item.price_dzd > minPrice + (maxPrice - minPrice) * 0.5) {
-        pinColor = 'bg-rose-600 text-white border-rose-700';
+        pinBg = '#e11d48';
+        pinBorder = '#be123c';
       } else {
-        pinColor = 'bg-amber-600 text-white border-amber-700';
+        pinBg = '#d97706';
+        pinBorder = '#b45309';
       }
 
       const markerHtml = `
-        <div class="custom-price-pin cursor-pointer flex flex-col items-center">
+        <div style="cursor:pointer; display:flex; flex-direction:column; align-items:center; transform:${isSelected ? 'scale(1.2)' : 'scale(1)'}; transition:transform 0.2s;">
           ${badgeHtml}
-          <div class="mt-0.5 px-3 py-1.5 rounded-2xl shadow-xl border-2 ${pinColor} font-black text-xs flex items-center gap-1 transition-all ${
-            isSelected ? 'ring-4 ring-slate-900 scale-125 z-50' : 'hover:scale-110'
-          }">
-            <span class="text-sm font-black">${item.price_dzd}</span>
-            <span class="text-[10px] font-extrabold opacity-90">DA</span>
+          <div style="background:${pinBg}; border:2px solid ${pinBorder}; color:${textColor}; font-weight:900; font-size:13px; padding:4px 8px; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,0.3); display:flex; align-items:center; gap:2px;">
+            <span>${item.price_dzd}</span>
+            <span style="font-size:9px; opacity:0.9;">DA</span>
           </div>
-          <div class="w-2 h-2 bg-slate-900 rounded-full mt-0.5 shadow-xs"></div>
+          <div style="width:6px; height:6px; background:#0f172a; border-radius:50%; margin-top:2px;"></div>
         </div>
       `;
 
       const customIcon = L.divIcon({
-        className: 'price-pin-icon',
+        className: 'custom-leaflet-pin',
         html: markerHtml,
         iconSize: [80, 50],
         iconAnchor: [40, 45]
@@ -216,6 +293,11 @@ export function Step3Map({
 
       marker.addTo(markersGroupRef.current);
     });
+
+    // Make sure map sizes properly after markers are added
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.invalidateSize();
+    }
   }, [priceRecords, selectedRecord, isAr]);
 
   // Handle community vote
@@ -249,11 +331,20 @@ export function Step3Map({
     }
   };
 
+  const saveMapboxKey = () => {
+    localStorage.setItem('macdi_mapbox_key', tempApiKey.trim());
+    setMapboxApiKey(tempApiKey.trim());
+    if (tempApiKey.trim()) {
+      setMapStyle('mapbox');
+    }
+    setShowStyleModal(false);
+  };
+
   return (
-    <div className="max-w-md mx-auto flex flex-col h-[calc(100vh-95px)] relative overflow-hidden">
+    <div className="max-w-md mx-auto flex flex-col h-[calc(100vh-95px)] relative overflow-hidden bg-slate-100">
       
       {/* Top Floating Control Bar */}
-      <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-2 pointer-events-none">
+      <div className="absolute top-3 left-3 right-3 z-[1000] flex items-center justify-between gap-2 pointer-events-none">
         
         {/* Product & Best Price Badge */}
         <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-2xl shadow-lg border border-slate-200 pointer-events-auto flex items-center gap-2">
@@ -270,8 +361,18 @@ export function Step3Map({
           </div>
         </div>
 
-        {/* Refresh & Promo Buttons */}
+        {/* Action Buttons: Layers, Refresh, Promo */}
         <div className="flex items-center gap-1.5 pointer-events-auto">
+          
+          {/* Map Style & API Key Switcher */}
+          <button
+            onClick={() => setShowStyleModal(true)}
+            className="p-2.5 bg-white/95 backdrop-blur-md hover:bg-white text-slate-700 rounded-xl shadow-lg border border-slate-200 font-bold active:scale-95 transition"
+            title="Style de carte / Clé API Mapbox"
+          >
+            <Layers className="w-4 h-4 text-emerald-700" />
+          </button>
+
           <button
             onClick={loadPrices}
             disabled={loading}
@@ -283,7 +384,7 @@ export function Step3Map({
 
           <button
             onClick={onOpenPromoModal}
-            className="px-3 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-900 rounded-xl shadow-lg font-black text-xs flex items-center gap-1.5 transition border border-amber-300"
+            className="px-3 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-xl shadow-lg font-black text-xs flex items-center gap-1.5 transition border border-amber-300"
           >
             <Tag className="w-3.5 h-3.5" />
             <span>{isAr ? 'أضف تخفيض' : '+ Promo'}</span>
@@ -291,12 +392,17 @@ export function Step3Map({
         </div>
       </div>
 
-      {/* Styled Map Container */}
-      <div ref={mapContainerRef} className="w-full flex-1 z-0" />
+      {/* 1. Leaflet Map Container with explicit min-height and full width */}
+      <div
+        ref={mapContainerRef}
+        id="macdi-leaflet-map"
+        className="w-full flex-1 z-0 relative"
+        style={{ minHeight: '380px', height: '100%', width: '100%' }}
+      />
 
-      {/* Bottom Sheet: Active Store Details & Trust Engine */}
+      {/* 2. Bottom Sheet: Active Store Details & Trust Engine */}
       {selectedRecord ? (
-        <div className="bg-white border-t-2 border-slate-200 shadow-2xl rounded-t-3xl p-4 safe-bottom z-10 space-y-3">
+        <div className="bg-white border-t-2 border-slate-200 shadow-2xl rounded-t-3xl p-4 safe-bottom z-10 space-y-3 shrink-0">
           
           {/* Main Store Banner */}
           <div className="flex items-start justify-between">
@@ -443,6 +549,101 @@ export function Step3Map({
       ) : (
         <div className="bg-white p-4 text-center font-bold text-sm text-slate-500">
           {isAr ? 'جاري تحميل المتاجر والأسعار...' : 'Chargement des magasins...'}
+        </div>
+      )}
+
+      {/* Map Style & API Key Modal */}
+      {showStyleModal && (
+        <div className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 border border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-black text-slate-900 text-base">
+                  {isAr ? 'اختيار نمط الخريطة' : 'Style de la Carte & API Key'}
+                </h3>
+              </div>
+              <button onClick={() => setShowStyleModal(false)} className="p-1 rounded-full hover:bg-slate-100 text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tile Options */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMapStyle('voyager')}
+                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
+                  mapStyle === 'voyager' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
+                }`}
+              >
+                <span className="text-xl block mb-1">🗺️</span>
+                <span>CartoDB Voyager</span>
+                <span className="block text-[10px] text-slate-400 font-medium">HD Sans Clé</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMapStyle('osm')}
+                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
+                  mapStyle === 'osm' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
+                }`}
+              >
+                <span className="text-xl block mb-1">🌍</span>
+                <span>OpenStreetMap</span>
+                <span className="block text-[10px] text-slate-400 font-medium">Standard</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMapStyle('satellite')}
+                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
+                  mapStyle === 'satellite' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
+                }`}
+              >
+                <span className="text-xl block mb-1">🛰️</span>
+                <span>Vue Satellite</span>
+                <span className="block text-[10px] text-slate-400 font-medium">ArcGIS Imagerie</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMapStyle('mapbox')}
+                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
+                  mapStyle === 'mapbox' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
+                }`}
+              >
+                <span className="text-xl block mb-1">⚡</span>
+                <span>Mapbox Streets</span>
+                <span className="block text-[10px] text-slate-400 font-medium">Clé requise</span>
+              </button>
+            </div>
+
+            {/* Optional Mapbox API Key Input */}
+            <div className="pt-2 border-t border-slate-100 space-y-1.5">
+              <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-500" />
+                <span>Clé API Mapbox (Optionnelle) :</span>
+              </label>
+              <input
+                type="text"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                placeholder="pk.eyJ1..."
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-dzgreen-600"
+              />
+              <p className="text-[10px] text-slate-400">
+                Si vous avez un compte Mapbox, collez votre clé publique pour activer le rendu Mapbox Streets haute définition.
+              </p>
+            </div>
+
+            <button
+              onClick={saveMapboxKey}
+              className="w-full py-3 bg-dzgreen-600 hover:bg-dzgreen-700 text-white font-black rounded-xl text-xs transition"
+            >
+              Appliquer le Style
+            </button>
+          </div>
         </div>
       )}
 
