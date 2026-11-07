@@ -5,18 +5,13 @@ import {
   ThumbsUp,
   ThumbsDown,
   Navigation,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
   Tag,
   Phone,
   RefreshCw,
   Sparkles,
   ShieldCheck,
   Timer,
-  Layers,
-  Key,
-  X
+  Layers
 } from 'lucide-react';
 import {
   fetchPricesForProduct,
@@ -25,7 +20,7 @@ import {
   formatTime
 } from '../services/api';
 
-// Fix default leaflet marker icon asset path if ever used
+// Patch default marker icon URLs if used
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -50,13 +45,10 @@ export function Step3Map({
   const [priceRecords, setPriceRecords] = useState([]);
   const [selectedRecord, setSelectedRecord] = useState(null);
 
-  // Map tile style & API key configuration
-  const [mapStyle, setMapStyle] = useState('voyager'); // 'voyager' | 'osm' | 'satellite' | 'mapbox'
-  const [mapboxApiKey, setMapboxApiKey] = useState(() => localStorage.getItem('macdi_mapbox_key') || '');
-  const [showStyleModal, setShowStyleModal] = useState(false);
-  const [tempApiKey, setTempApiKey] = useState(mapboxApiKey);
+  // Map Tile Style: ONLY 'osm' (OpenStreetMap) OR 'satellite' (ArcGIS World Imagery)
+  const [mapStyle, setMapStyle] = useState('osm');
   
-  // Anti-spam cooldown state
+  // Anti-spam cooldown state (15 min)
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [voteError, setVoteError] = useState('');
   const [voteSuccess, setVoteSuccess] = useState('');
@@ -86,7 +78,7 @@ export function Step3Map({
     loadPrices();
   }, [selectedProduct, userLocation, radiusKm]);
 
-  // 2. Cooldown timer countdown interval
+  // 2. Cooldown timer interval
   useEffect(() => {
     const status = getCooldownStatus(selectedProduct.id);
     setCooldownSeconds(status.remainingSeconds);
@@ -105,20 +97,8 @@ export function Step3Map({
     }
   }, [selectedProduct.id, voteSuccess]);
 
-  // Helper to get active tile URL
-  const getTileConfig = (style, apiKey) => {
-    if (style === 'mapbox' && apiKey) {
-      return {
-        url: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${apiKey}`,
-        options: {
-          attribution: '&copy; Mapbox &copy; OpenStreetMap',
-          tileSize: 512,
-          zoomOffset: -1,
-          maxZoom: 19
-        }
-      };
-    }
-
+  // Reliable Tile Config (Only OSM and ArcGIS Satellite)
+  const getTileConfig = (style) => {
     if (style === 'satellite') {
       return {
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -129,23 +109,12 @@ export function Step3Map({
       };
     }
 
-    if (style === 'osm') {
-      return {
-        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        options: {
-          attribution: '&copy; OpenStreetMap contributors',
-          subdomains: ['a', 'b', 'c'],
-          maxZoom: 19
-        }
-      };
-    }
-
-    // Default: Clean CartoDB Voyager (No undefined {r} tokens!)
+    // Default: OpenStreetMap standard worldwide server (100% reliable)
     return {
-      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       options: {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: ['a', 'b', 'c', 'd'],
+        attribution: '&copy; OpenStreetMap contributors',
+        subdomains: ['a', 'b', 'c'],
         maxZoom: 19
       }
     };
@@ -164,7 +133,7 @@ export function Step3Map({
       });
 
       // Add Tile Layer
-      const tileConfig = getTileConfig(mapStyle, mapboxApiKey);
+      const tileConfig = getTileConfig(mapStyle);
       tileLayerRef.current = L.tileLayer(tileConfig.url, tileConfig.options).addTo(map);
 
       // Add Zoom Control at top right
@@ -180,7 +149,7 @@ export function Step3Map({
         dashArray: '6, 6'
       }).addTo(map);
 
-      // User location radar pulse
+      // User location radar pulse marker
       const userIcon = L.divIcon({
         className: 'user-pin-pulse',
         html: `
@@ -201,17 +170,13 @@ export function Step3Map({
       mapInstanceRef.current = map;
     }
 
-    // Force Leaflet to recalculate container dimensions (Fixes blank map issues in tabs/flex)
-    const resizeTimer1 = setTimeout(() => {
+    // Force Leaflet to recalculate container dimensions
+    const resizeTimer = setTimeout(() => {
       if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
-    }, 100);
-    const resizeTimer2 = setTimeout(() => {
-      if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
-    }, 400);
+    }, 150);
 
     return () => {
-      clearTimeout(resizeTimer1);
-      clearTimeout(resizeTimer2);
+      clearTimeout(resizeTimer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -219,18 +184,19 @@ export function Step3Map({
     };
   }, [userLocation, radiusKm]);
 
-  // Update map style if user changes style or API key
+  // Switch between OpenStreetMap and Satellite
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     if (tileLayerRef.current) {
       mapInstanceRef.current.removeLayer(tileLayerRef.current);
     }
-    const tileConfig = getTileConfig(mapStyle, mapboxApiKey);
+    const tileConfig = getTileConfig(mapStyle);
     tileLayerRef.current = L.tileLayer(tileConfig.url, tileConfig.options).addTo(mapInstanceRef.current);
     tileLayerRef.current.bringToBack();
-  }, [mapStyle, mapboxApiKey]);
+    mapInstanceRef.current.invalidateSize();
+  }, [mapStyle]);
 
-  // 4. Update markers on the map when price records change
+  // 4. Update markers on the map
   useEffect(() => {
     if (!mapInstanceRef.current || !markersGroupRef.current) return;
 
@@ -251,12 +217,12 @@ export function Step3Map({
       let textColor = '#ffffff';
 
       if (isPromo) {
-        badgeHtml = `<span style="background:#f59e0b; color:#0f172a; font-weight:900; font-size:9px; padding:2px 6px; border-radius:9999px; box-shadow:0 2px 4px rgba(0,0,0,0.15); margin-bottom:2px; white-space:nowrap;">⚡ ${isAr ? 'تخفيض خاص' : 'PROMO'}</span>`;
+        badgeHtml = `<span style="background:#f59e0b; color:#0f172a; font-weight:900; font-size:9px; padding:2px 6px; border-radius:9999px; box-shadow:0 2px 4px rgba(0,0,0,0.2); margin-bottom:2px; white-space:nowrap;">⚡ ${isAr ? 'تخفيض خاص' : 'PROMO'}</span>`;
         pinBg = '#f59e0b';
         pinBorder = '#d97706';
         textColor = '#0f172a';
       } else if (isCheapest) {
-        badgeHtml = `<span style="background:#059669; color:#ffffff; font-weight:900; font-size:10px; padding:2px 8px; border-radius:9999px; box-shadow:0 2px 4px rgba(0,0,0,0.15); margin-bottom:2px; white-space:nowrap; border:1px solid #34d399;">🏆 ${isAr ? 'الأرخص' : 'Le moins cher'}</span>`;
+        badgeHtml = `<span style="background:#059669; color:#ffffff; font-weight:900; font-size:10px; padding:2px 8px; border-radius:9999px; box-shadow:0 2px 4px rgba(0,0,0,0.2); margin-bottom:2px; white-space:nowrap; border:1px solid #34d399;">🏆 ${isAr ? 'الأرخص' : 'Le moins cher'}</span>`;
         pinBg = '#047857';
         pinBorder = '#10b981';
       } else if (item.price_dzd > minPrice + (maxPrice - minPrice) * 0.5) {
@@ -294,7 +260,6 @@ export function Step3Map({
       marker.addTo(markersGroupRef.current);
     });
 
-    // Make sure map sizes properly after markers are added
     if (mapInstanceRef.current) {
       mapInstanceRef.current.invalidateSize();
     }
@@ -331,15 +296,6 @@ export function Step3Map({
     }
   };
 
-  const saveMapboxKey = () => {
-    localStorage.setItem('macdi_mapbox_key', tempApiKey.trim());
-    setMapboxApiKey(tempApiKey.trim());
-    if (tempApiKey.trim()) {
-      setMapStyle('mapbox');
-    }
-    setShowStyleModal(false);
-  };
-
   return (
     <div className="max-w-md mx-auto flex flex-col h-[calc(100vh-95px)] relative overflow-hidden bg-slate-100">
       
@@ -361,16 +317,17 @@ export function Step3Map({
           </div>
         </div>
 
-        {/* Action Buttons: Layers, Refresh, Promo */}
+        {/* Action Controls: Direct Map Switcher, Refresh, Promo */}
         <div className="flex items-center gap-1.5 pointer-events-auto">
           
-          {/* Map Style & API Key Switcher */}
+          {/* Direct Map Toggle (OpenStreetMap <-> Satellite) */}
           <button
-            onClick={() => setShowStyleModal(true)}
-            className="p-2.5 bg-white/95 backdrop-blur-md hover:bg-white text-slate-700 rounded-xl shadow-lg border border-slate-200 font-bold active:scale-95 transition"
-            title="Style de carte / Clé API Mapbox"
+            onClick={() => setMapStyle(mapStyle === 'osm' ? 'satellite' : 'osm')}
+            className="px-2.5 py-2 bg-white/95 backdrop-blur-md hover:bg-white text-slate-800 rounded-xl shadow-lg border border-slate-200 font-black text-xs flex items-center gap-1 active:scale-95 transition"
+            title="Basculer entre Plan et Satellite"
           >
-            <Layers className="w-4 h-4 text-emerald-700" />
+            <Layers className="w-3.5 h-3.5 text-dzgreen-700" />
+            <span>{mapStyle === 'osm' ? (isAr ? 'قمر صناعي 🛰️' : 'Satellite 🛰️') : (isAr ? 'خريطة 🗺️' : 'Plan 🗺️')}</span>
           </button>
 
           <button
@@ -392,7 +349,7 @@ export function Step3Map({
         </div>
       </div>
 
-      {/* 1. Leaflet Map Container with explicit min-height and full width */}
+      {/* 1. Leaflet Map Container */}
       <div
         ref={mapContainerRef}
         id="macdi-leaflet-map"
@@ -549,101 +506,6 @@ export function Step3Map({
       ) : (
         <div className="bg-white p-4 text-center font-bold text-sm text-slate-500">
           {isAr ? 'جاري تحميل المتاجر والأسعار...' : 'Chargement des magasins...'}
-        </div>
-      )}
-
-      {/* Map Style & API Key Modal */}
-      {showStyleModal && (
-        <div className="fixed inset-0 z-[2000] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 border border-slate-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-black text-slate-900 text-base">
-                  {isAr ? 'اختيار نمط الخريطة' : 'Style de la Carte & API Key'}
-                </h3>
-              </div>
-              <button onClick={() => setShowStyleModal(false)} className="p-1 rounded-full hover:bg-slate-100 text-slate-400">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Tile Options */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setMapStyle('voyager')}
-                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
-                  mapStyle === 'voyager' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
-                }`}
-              >
-                <span className="text-xl block mb-1">🗺️</span>
-                <span>CartoDB Voyager</span>
-                <span className="block text-[10px] text-slate-400 font-medium">HD Sans Clé</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMapStyle('osm')}
-                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
-                  mapStyle === 'osm' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
-                }`}
-              >
-                <span className="text-xl block mb-1">🌍</span>
-                <span>OpenStreetMap</span>
-                <span className="block text-[10px] text-slate-400 font-medium">Standard</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMapStyle('satellite')}
-                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
-                  mapStyle === 'satellite' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
-                }`}
-              >
-                <span className="text-xl block mb-1">🛰️</span>
-                <span>Vue Satellite</span>
-                <span className="block text-[10px] text-slate-400 font-medium">ArcGIS Imagerie</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMapStyle('mapbox')}
-                className={`p-3 rounded-2xl border-2 text-left transition font-bold text-xs ${
-                  mapStyle === 'mapbox' ? 'border-dzgreen-600 bg-emerald-50 text-emerald-950' : 'border-slate-200'
-                }`}
-              >
-                <span className="text-xl block mb-1">⚡</span>
-                <span>Mapbox Streets</span>
-                <span className="block text-[10px] text-slate-400 font-medium">Clé requise</span>
-              </button>
-            </div>
-
-            {/* Optional Mapbox API Key Input */}
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
-              <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-amber-500" />
-                <span>Clé API Mapbox (Optionnelle) :</span>
-              </label>
-              <input
-                type="text"
-                value={tempApiKey}
-                onChange={(e) => setTempApiKey(e.target.value)}
-                placeholder="pk.eyJ1..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-dzgreen-600"
-              />
-              <p className="text-[10px] text-slate-400">
-                Si vous avez un compte Mapbox, collez votre clé publique pour activer le rendu Mapbox Streets haute définition.
-              </p>
-            </div>
-
-            <button
-              onClick={saveMapboxKey}
-              className="w-full py-3 bg-dzgreen-600 hover:bg-dzgreen-700 text-white font-black rounded-xl text-xs transition"
-            >
-              Appliquer le Style
-            </button>
-          </div>
         </div>
       )}
 
