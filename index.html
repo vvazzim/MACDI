@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>As3ar DZ - Comparateur de Prix Alimentaires en Algérie</title>
+    
+    <!-- PWA & Mobile Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#059669" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="As3ar DZ" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    
+    <!-- OpenStreetMap / Leaflet Stylesheet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- Fonts: Inter & Tajawal for Algerian Bilingual Arabic/French -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+      body {
+        font-family: 'Plus Jakarta Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      [dir="rtl"] {
+        font-family: 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif;
+      }
+      /* Custom map marker styles */
+      .custom-price-pin {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .custom-price-pin:hover {
+        transform: scale(1.15);
+        z-index: 1000 !important;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-800 antialiased overflow-x-hidden">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <script>
+      // Register Service Worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then((reg) => {
+            console.log('✅ As3ar-DZ ServiceWorker prêt:', reg.scope);
+          }).catch((err) => {
+            console.warn('⚠️ ServiceWorker non enregistré:', err);
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

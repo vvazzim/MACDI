@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: as3ar-dz
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: PORT
+        value: 10000
