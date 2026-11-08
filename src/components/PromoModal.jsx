@@ -115,18 +115,18 @@ export function PromoModal({ lang, isOpen, onClose, selectedProduct, onSuccess }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[99999] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl space-y-4 border border-slate-100 max-h-[92vh] overflow-y-auto">
         
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2.5 bg-amber-100 text-amber-800 rounded-2xl shadow-xs">
+            <div className="p-2.5 bg-dzgreen-100 text-dzgreen-800 rounded-2xl shadow-xs">
               <Tag className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
               <h3 className="font-black text-slate-900 text-base leading-tight">
-                {isAr ? 'إعلان تخفيض أو سوق حر' : 'Ajouter un Magasin / Promo'}
+                {isAr ? 'إضافة سعر منتوج أو محل' : 'Ajouter un Produit / Magasin'}
               </h3>
               <p className="text-[11px] text-slate-400 font-bold">
                 {isAr ? 'موقع الجهاز الدقيق إلزامي للتوثيق' : 'Localisation GPS de l\'appareil obligatoire'}

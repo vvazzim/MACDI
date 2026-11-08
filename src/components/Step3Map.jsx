@@ -299,8 +299,8 @@ export function Step3Map({
   return (
     <div className="max-w-md mx-auto flex flex-col h-[calc(100vh-95px)] relative overflow-hidden bg-slate-100">
       
-      {/* 1. Top Left: Selected Product Badge */}
-      <div className="absolute top-3 left-3 z-[1000] pointer-events-auto">
+      {/* 1. Top Left: Selected Product Badge (Clean spacing below header) */}
+      <div className="absolute top-3 left-3 z-20 pointer-events-auto">
         <div className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-2xl shadow-lg border border-slate-200/80 flex items-center gap-2 max-w-[190px]">
           <span className="text-2xl shrink-0">{selectedProduct.image}</span>
           <div className="text-left overflow-hidden">
@@ -316,15 +316,16 @@ export function Step3Map({
         </div>
       </div>
 
-      {/* 2. Top Right: Promo Button on top, and under it the icon-only controls */}
-      <div className="absolute top-3 right-3 z-[1000] flex flex-col items-end gap-2 pointer-events-auto">
-        {/* + Promo Button */}
+      {/* 2. Top Right: + Prix / Produit Button on top, and under it the icon-only controls */}
+      <div className="absolute top-3 right-3 z-20 flex flex-col items-end gap-2 pointer-events-auto">
+        {/* + Prix / Produit Button */}
         <button
           onClick={onOpenPromoModal}
-          className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 rounded-2xl shadow-lg font-black text-xs flex items-center gap-1.5 transition border border-amber-300/80"
+          className="px-3.5 py-2 bg-dzgreen-600 hover:bg-dzgreen-700 active:scale-95 text-white rounded-2xl shadow-lg font-black text-xs flex items-center gap-1.5 transition border border-dzgreen-500/80"
+          title={isAr ? 'إضافة سعر أو محل جديد' : 'Signaler un prix ou magasin'}
         >
-          <Tag className="w-3.5 h-3.5" />
-          <span>{isAr ? 'أضف تخفيض' : '+ Promo'}</span>
+          <Tag className="w-3.5 h-3.5 text-amber-300" />
+          <span>{isAr ? '+ سعر / منتج' : '+ Prix / Produit'}</span>
         </button>
 
         {/* Vertical Icon Toolbar: Refresh & Map Style (Icon Only) */}
